@@ -5,3 +5,5 @@ services:
     build: .
     restart: always
     env_file: .env
+    volumes:
+      - ./sounds:/app/sounds

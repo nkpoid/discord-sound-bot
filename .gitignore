@@ -1,6 +1,5 @@
 .env
 Pipfile.lock
 
-sounds.json
 sounds/*
-!.keep
+!sounds/map.json
