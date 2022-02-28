@@ -2,4 +2,4 @@
 Pipfile.lock
 
 sounds/*
-!sounds/map.json
+!sounds/map.json.example
