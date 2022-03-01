@@ -7,16 +7,15 @@ from asyncio import sleep
 from random import choice
 from typing import Dict, List, Union
 
-import discord
-from discord import FFmpegPCMAudio, Member, Message
+from discord import Bot, FFmpegPCMAudio, Member, Message
 from discord.ext import tasks
 
-bot = discord.Bot()
+bot = Bot()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("discord")
 
-SOUND_MAP: Dict[str, Union[str, List[str]]]
+sound_map: Dict[str, Union[str, List[str]]] = {}
 
 
 @bot.event
@@ -27,29 +26,33 @@ async def on_message(message: Message):
     if not isinstance(message.author, Member):
         return
 
-    for pattern, path_candidate in SOUND_MAP.items():
-        if message.content.startswith(pattern):
-            if message.author.voice is None:
-                logger.warning("User is not on voice channel.")
-                return
+    matched = [v for k, v in sound_map.items() if message.content.startswith(k)]
+    path_candidate = next(iter(matched), None)
+    if path_candidate is None:
+        return
 
-            if message.author.voice.channel is None:
-                return
+    path = choice(path_candidate) if isinstance(path_candidate, list) else path_candidate
 
-            vc = await message.author.voice.channel.connect()
-            path = choice(path_candidate) if isinstance(path_candidate, list) else path_candidate
-            vc.play(FFmpegPCMAudio(path))
+    if message.author.voice is None:
+        logger.warning("User is not on voice channel.")
+        return
 
-            while vc.is_playing():
-                await sleep(1)
-            await vc.disconnect()
+    if message.author.voice.channel is None:
+        return
+
+    vc = await message.author.voice.channel.connect()
+    vc.play(FFmpegPCMAudio(path))
+
+    while vc.is_playing():
+        await sleep(1)
+    await vc.disconnect()
 
 
 @tasks.loop(seconds=10)
 async def config_updater():
     with open("./sounds.json") as f:
-        global SOUND_MAP
-        SOUND_MAP = json.load(f)
+        global sound_map
+        sound_map = json.load(f)
 
 
 config_updater.start()
