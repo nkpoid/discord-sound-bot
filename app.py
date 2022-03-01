@@ -42,7 +42,7 @@ async def on_message(message: Message):
 
 @tasks.loop(seconds=10)
 async def config_updater():
-    with open("./sounds/map.json") as f:
+    with open("./sounds.json") as f:
         global SOUND_MAP
         SOUND_MAP = json.load(f)
 

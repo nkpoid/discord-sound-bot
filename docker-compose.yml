@@ -6,4 +6,9 @@ services:
     restart: always
     env_file: .env
     volumes:
-      - ./sounds:/app/sounds
+      - type: bind
+        source: ./sounds
+        target: /app/sounds
+      - type: bind
+        source: ./sounds.json
+        target: /app/sounds.json

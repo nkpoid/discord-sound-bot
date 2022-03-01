@@ -3,4 +3,5 @@ Pipfile.lock
 requirements.txt
 
 sounds/*
-!sounds/map.json.example
+!sounds/.keep
+/sounds.json
