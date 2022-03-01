@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-py-cord = {extras = ["voice"], version = "*"}
+py-cord = {version = ">1.7.3", extras = ["voice"]}
 
 [dev-packages]
 black = "*"
