@@ -6,6 +6,7 @@ RUN apt install ffmpeg -y
 WORKDIR /app
 
 COPY app.py requirements.txt /app/
-RUN pip install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache \
+    pip install -r requirements.txt
 
 CMD ["./app.py"]
