@@ -3,19 +3,33 @@
 import json
 import logging
 import os
+import re
 from asyncio import sleep
-from random import choice
-from typing import Dict, List, Union
+from typing import List
 
 from discord import Bot, FFmpegPCMAudio, Member, Message
 from discord.ext import tasks
+
+
+class SoundTable:
+    def __init__(self, pattern: str, filename: str):
+        self.pattern: re.Pattern = re.compile(pattern, re.IGNORECASE)
+        self.filename: str = filename
+
+    @classmethod
+    def load(cls, table_path: str) -> List["SoundTable"]:
+        with open(table_path) as f:
+            data = json.load(f)
+
+        return [SoundTable(elem["pattern"], elem["filename"]) for elem in data]
+
 
 bot = Bot()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("discord")
 
-sound_map: Dict[str, Union[str, List[str]]] = {}
+sound_tables: List[SoundTable] = []
 
 
 @bot.event
@@ -26,12 +40,10 @@ async def on_message(message: Message):
     if not isinstance(message.author, Member):
         return
 
-    matched = [v for k, v in sound_map.items() if message.content.startswith(k)]
-    path_candidate = next(iter(matched), None)
-    if path_candidate is None:
+    matched = [elem for elem in sound_tables if elem.pattern.match(message.content)]
+    po = next(iter(matched), None)
+    if po is None:
         return
-
-    path = choice(path_candidate) if isinstance(path_candidate, list) else path_candidate
 
     if message.author.voice is None:
         logger.warning("User is not on voice channel.")
@@ -41,7 +53,7 @@ async def on_message(message: Message):
         return
 
     vc = await message.author.voice.channel.connect()
-    vc.play(FFmpegPCMAudio(path))
+    vc.play(FFmpegPCMAudio(os.path.join("./sounds", po.filename)))
 
     while vc.is_playing():
         await sleep(1)
@@ -50,9 +62,8 @@ async def on_message(message: Message):
 
 @tasks.loop(seconds=10)
 async def config_updater():
-    with open("./sounds.json") as f:
-        global sound_map
-        sound_map = json.load(f)
+    global sound_tables
+    sound_tables = SoundTable.load("./sounds.json")
 
 
 config_updater.start()

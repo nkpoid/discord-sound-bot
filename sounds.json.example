@@ -1,3 +1,6 @@
-{
-  "example": "sounds/example.mp3"
-}
+[
+  {
+    "pattern": "^example",
+    "filename": "example.mp3"
+  }
+]
