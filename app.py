@@ -7,22 +7,23 @@ import re
 from asyncio import sleep
 from typing import List
 
-from discord import Bot, FFmpegPCMAudio, Member, Message
-from discord.ext import tasks
+from discord import Bot, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel
 from discord.commands.context import ApplicationContext
+from discord.ext import tasks
 
 
 class SoundTable:
-    def __init__(self, pattern: str, filename: str):
-        self.pattern: re.Pattern = re.compile(pattern, re.IGNORECASE)
-        self.filename: str = filename
+    def __init__(self, pattern: str, filename: str, volume: float):
+        self.pattern = re.compile(pattern, re.IGNORECASE)
+        self.filename = filename
+        self.volume = volume
 
     @classmethod
     def load(cls, table_path: str) -> List["SoundTable"]:
         with open(table_path) as f:
             data = json.load(f)
 
-        return [SoundTable(elem["pattern"], elem["filename"]) for elem in data]
+        return [SoundTable(elem["pattern"], elem["filename"], elem.get("volume", 1)) for elem in data]
 
 
 bot = Bot()
@@ -30,6 +31,7 @@ bot = Bot()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("discord")
 
+last_update_time: float = 0
 sound_tables: List[SoundTable] = []
 
 
@@ -42,19 +44,29 @@ async def on_message(message: Message):
         return
 
     matched = [elem for elem in sound_tables if elem.pattern.match(message.content)]
-    matched_table = next(iter(matched), None)
-    if matched_table is None:
+    item = next(iter(matched), None)
+    if item is None:
         return
 
     if message.author.voice is None:
         logger.warning("User is not on voice channel.")
         return
 
-    if message.author.voice.channel is None:
+    mentioned_user = next(iter(message.mentions), None)
+    mentioned_voice_channel = next(iter([v for v in message.channel_mentions if isinstance(v, VoiceChannel)]), None)
+    if isinstance(mentioned_user, Member) and mentioned_user.voice is not None:
+        voice_channel = mentioned_user.voice.channel
+        if voice_channel is None:
+            return
+    elif mentioned_voice_channel is not None:
+        voice_channel = mentioned_voice_channel
+    elif message.author.voice.channel is not None:
+        voice_channel = message.author.voice.channel
+    else:
         return
 
-    vc = await message.author.voice.channel.connect()
-    vc.play(FFmpegPCMAudio(os.path.join("./sounds", matched_table.filename)))
+    vc = await voice_channel.connect()
+    vc.play(PCMVolumeTransformer(FFmpegPCMAudio(os.path.join("./sounds", item.filename)), volume=item.volume))
 
     while vc.is_playing():
         await sleep(1)
@@ -67,9 +79,15 @@ async def list(ctx: ApplicationContext):
     await ctx.respond(text)
 
 
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=1)
 async def config_updater():
-    global sound_tables
+    global last_update_time, sound_tables
+
+    t = os.path.getmtime("./sounds.json")
+    if t == last_update_time:
+        return
+
+    last_update_time = t
     sound_tables = SoundTable.load("./sounds.json")
 
 
