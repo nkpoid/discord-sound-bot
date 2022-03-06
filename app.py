@@ -9,6 +9,7 @@ from typing import List
 
 from discord import Bot, FFmpegPCMAudio, Member, Message
 from discord.ext import tasks
+from discord.commands.context import ApplicationContext
 
 
 class SoundTable:
@@ -58,6 +59,12 @@ async def on_message(message: Message):
     while vc.is_playing():
         await sleep(1)
     await vc.disconnect()
+
+
+@bot.slash_command()
+async def list(ctx: ApplicationContext):
+    text = "\n".join([f"`{table.pattern.pattern}`" for table in sound_tables])
+    await ctx.respond(text)
 
 
 @tasks.loop(seconds=10)
