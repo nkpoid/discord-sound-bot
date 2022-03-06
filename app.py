@@ -41,8 +41,8 @@ async def on_message(message: Message):
         return
 
     matched = [elem for elem in sound_tables if elem.pattern.match(message.content)]
-    po = next(iter(matched), None)
-    if po is None:
+    matched_table = next(iter(matched), None)
+    if matched_table is None:
         return
 
     if message.author.voice is None:
@@ -53,7 +53,7 @@ async def on_message(message: Message):
         return
 
     vc = await message.author.voice.channel.connect()
-    vc.play(FFmpegPCMAudio(os.path.join("./sounds", po.filename)))
+    vc.play(FFmpegPCMAudio(os.path.join("./sounds", matched_table.filename)))
 
     while vc.is_playing():
         await sleep(1)
