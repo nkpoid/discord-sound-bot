@@ -70,7 +70,7 @@ class JukeBoxCog(commands.Cog):
         if not isinstance(message.author, Member):
             return
 
-        matched = [elem for elem in sound_tables if elem.pattern.match(message.content)]
+        matched = [elem for elem in self.sound_tables if elem.pattern.match(message.content)]
         table = next(iter(matched), None)
         if table is None:
             return
@@ -103,19 +103,19 @@ class JukeBoxCog(commands.Cog):
     @slash_command()
     async def list(self, ctx: ApplicationContext):
         """現在Botに登録されているメッセージトリガーの正規表現を一覧します"""
-        text = "\n".join([f"`{table.pattern.pattern}`" for table in sound_tables])
+
+        text = f"Total **{len(self.sound_tables)}** conditions\n\n"
+        text += "\n".join([f"`{table.pattern.pattern}`" for table in self.sound_tables])
         await ctx.respond(text, ephemeral=True)
 
     @tasks.loop(seconds=1)
     async def config_updater(self):
-        global last_update_time, sound_tables
-
         t = os.path.getmtime(SOUNDS_TABLE_FILE)
         if t == self.last_update_time:
             return
 
-        last_update_time = t
-        sound_tables = SoundTable.load(SOUNDS_TABLE_FILE)
+        self.last_update_time = t
+        self.sound_tables = SoundTable.load(SOUNDS_TABLE_FILE)
 
 
 def setup(bot: Bot):
