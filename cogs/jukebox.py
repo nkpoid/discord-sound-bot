@@ -4,9 +4,9 @@ import os
 import re
 import subprocess
 from asyncio import sleep
-from typing import Dict, List
+from typing import List
 
-from discord import Bot, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel, VoiceClient
+from discord import Bot, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel
 from discord.errors import ClientException
 from discord.commands import slash_command
 from discord.commands.context import ApplicationContext
@@ -56,7 +56,6 @@ class JukeBoxCog(commands.Cog):
 
         self.last_update_time: float = 0
         self.sound_tables: List[SoundTable] = []
-        self.voice_clients: Dict[int, VoiceClient] = {}
 
         self.config_updater.start()
 
