@@ -2,10 +2,12 @@ import json
 import logging
 import os
 import re
+import subprocess
 from asyncio import sleep
-from typing import List
+from typing import Dict, List
 
-from discord import Bot, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel
+from discord import Bot, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel, VoiceClient
+from discord.errors import ClientException
 from discord.commands import slash_command
 from discord.commands.context import ApplicationContext
 from discord.ext import commands, tasks
@@ -27,13 +29,34 @@ class SoundTable:
         return [SoundTable(elem["pattern"], elem["filename"], elem.get("volume", 1)) for elem in data]
 
 
+def get_media_duration(path: str):
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            path,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    return float(result.stdout)
+
+
 class JukeBoxCog(commands.Cog):
     def __init__(self, bot: Bot) -> None:
         logging.basicConfig(level=logging.INFO)
 
         self.bot = bot
+        self.logger = logging.getLogger("discord")
+
         self.last_update_time: float = 0
         self.sound_tables: List[SoundTable] = []
+        self.voice_clients: Dict[int, VoiceClient] = {}
 
         self.config_updater.start()
 
@@ -53,34 +76,36 @@ class JukeBoxCog(commands.Cog):
         if table is None:
             return
 
-        if message.author.voice is None:
-            return
-
         mentioned_user = next(iter(message.mentions), None)
         mentioned_voice_channel = next(iter([v for v in message.channel_mentions if isinstance(v, VoiceChannel)]), None)
         if isinstance(mentioned_user, Member) and mentioned_user.voice is not None:
             voice_channel = mentioned_user.voice.channel
-            if voice_channel is None:
-                return
         elif mentioned_voice_channel is not None:
             voice_channel = mentioned_voice_channel
-        elif message.author.voice.channel is not None:
+        elif message.author.voice is not None:
             voice_channel = message.author.voice.channel
         else:
             return
 
-        vc = await voice_channel.connect()
-        vc.play(PCMVolumeTransformer(FFmpegPCMAudio(os.path.join("./sounds", table.filename)), volume=table.volume))
+        if voice_channel is None:
+            return
 
-        while vc.is_playing():
-            await sleep(1)
+        try:
+            vc = await voice_channel.connect()
+        except ClientException as e:
+            await message.reply(f"Error: {e}")
+            return
+
+        path = os.path.join("./sounds", table.filename)
+        vc.play(PCMVolumeTransformer(FFmpegPCMAudio(path), volume=table.volume))
+        await sleep(get_media_duration(path))
         await vc.disconnect()
 
     @slash_command()
     async def list(self, ctx: ApplicationContext):
         """現在Botに登録されているメッセージトリガーの正規表現を一覧します"""
         text = "\n".join([f"`{table.pattern.pattern}`" for table in sound_tables])
-        await ctx.respond(text)
+        await ctx.respond(text, ephemeral=True)
 
     @tasks.loop(seconds=1)
     async def config_updater(self):
