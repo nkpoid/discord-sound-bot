@@ -78,6 +78,7 @@ class JukeBoxCog(commands.Cog):
 
     @slash_command()
     async def list(self, ctx: ApplicationContext):
+        """現在Botに登録されているメッセージトリガーの正規表現を一覧します"""
         text = "\n".join([f"`{table.pattern.pattern}`" for table in sound_tables])
         await ctx.respond(text)
 
