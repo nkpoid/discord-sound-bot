@@ -94,7 +94,12 @@ class JukeBoxCog(commands.Cog):
 
         vc: Optional[VoiceClient] = message.guild.voice_client  # type: ignore
         if vc:
-            vc.stop()
+            if vc.is_connected():
+                vc.stop()
+                await vc.move_to(voice_channel)
+            else:
+                await vc.disconnect(force=True)
+                vc = await voice_channel.connect()
         else:
             vc = await voice_channel.connect()
 
