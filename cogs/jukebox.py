@@ -6,10 +6,10 @@ import subprocess
 from asyncio import sleep
 from typing import List
 
-from discord import Bot, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel
-from discord.errors import ClientException
+from discord import Bot, Embed, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel
 from discord.commands import slash_command
 from discord.commands.context import ApplicationContext
+from discord.errors import ClientException
 from discord.ext import commands, tasks
 
 SOUNDS_TABLE_FILE = "./sounds.json"
@@ -96,17 +96,21 @@ class JukeBoxCog(commands.Cog):
             return
 
         path = os.path.join("./sounds", table.filename)
+        duration = get_media_duration(path)
         vc.play(PCMVolumeTransformer(FFmpegPCMAudio(path), volume=table.volume))
-        await sleep(get_media_duration(path))
+        await sleep(duration)
         await vc.disconnect()
 
     @slash_command()
     async def list(self, ctx: ApplicationContext):
         """現在Botに登録されているメッセージトリガーの正規表現を一覧します"""
 
-        text = f"Total **{len(self.sound_tables)}** conditions\n\n"
-        text += "\n".join([f"`{table.pattern.pattern}`" for table in self.sound_tables])
-        await ctx.respond(text, ephemeral=True)
+        embed = Embed(
+            title=f"Total {len(self.sound_tables)} conditions",
+            description="\n".join([f"・`{table.pattern.pattern}`" for table in self.sound_tables]),
+        )
+
+        await ctx.respond(embed=embed, ephemeral=True)
 
     @tasks.loop(seconds=1)
     async def config_updater(self):
