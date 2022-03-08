@@ -4,12 +4,12 @@ import os
 import re
 import subprocess
 from asyncio import sleep
-from typing import List
+from typing import Dict, List, Optional
+from datetime import datetime, timedelta
 
-from discord import Bot, Embed, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel
+from discord import Bot, Embed, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel, VoiceClient
 from discord.commands import slash_command
 from discord.commands.context import ApplicationContext
-from discord.errors import ClientException
 from discord.ext import commands, tasks
 
 SOUNDS_TABLE_FILE = "./sounds.json"
@@ -56,6 +56,7 @@ class JukeBoxCog(commands.Cog):
 
         self.last_update_time: float = 0
         self.sound_tables: List[SoundTable] = []
+        self.disconnect_time_per_guilds: Dict[int, datetime] = {}
 
         self.config_updater.start()
 
@@ -68,6 +69,8 @@ class JukeBoxCog(commands.Cog):
             return
 
         if not isinstance(message.author, Member):
+            return
+        elif not message.guild:
             return
 
         matched = [elem for elem in self.sound_tables if elem.pattern.match(message.content)]
@@ -89,17 +92,20 @@ class JukeBoxCog(commands.Cog):
         if voice_channel is None:
             return
 
-        try:
+        vc: Optional[VoiceClient] = message.guild.voice_client  # type: ignore
+        if vc:
+            vc.stop()
+        else:
             vc = await voice_channel.connect()
-        except ClientException as e:
-            await message.reply(f"Error: {e}")
-            return
 
         path = os.path.join("./sounds", table.filename)
         duration = get_media_duration(path)
+        self.disconnect_time_per_guilds[message.guild.id] = datetime.now() + timedelta(seconds=duration)
+
         vc.play(PCMVolumeTransformer(FFmpegPCMAudio(path), volume=table.volume))
         await sleep(duration)
-        await vc.disconnect()
+        if self.disconnect_time_per_guilds[message.guild.id] <= datetime.now():
+            await vc.disconnect()
 
     @slash_command()
     async def list(self, ctx: ApplicationContext):
