@@ -4,10 +4,10 @@ import os
 import re
 import subprocess
 from asyncio import sleep
-from typing import Dict, List, Optional
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional
 
-from discord import Bot, Embed, FFmpegPCMAudio, Member, Message, PCMVolumeTransformer, VoiceChannel, VoiceClient
+from discord import Bot, Embed, FFmpegPCMAudio, Game, Member, Message, PCMVolumeTransformer, VoiceChannel, VoiceClient
 from discord.commands import slash_command
 from discord.commands.context import ApplicationContext
 from discord.ext import commands, tasks
@@ -62,6 +62,10 @@ class JukeBoxCog(commands.Cog):
 
     def cog_unload(self):
         self.config_updater.cancel()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.bot.change_presence(activity=Game(name="/list"))
 
     @commands.Cog.listener()
     async def on_message(self, message: Message):
